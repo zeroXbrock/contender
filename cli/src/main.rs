@@ -13,6 +13,7 @@ use alloy::{
 use commands::{ContenderCli, ContenderSubcommand};
 use contender_core::{
     db::{DbOps, RunTx},
+    error::ContenderError,
     generator::{
         types::{AnyProvider, FunctionCallDefinition},
         RandSeed,
@@ -21,7 +22,10 @@ use contender_core::{
     test_scenario::TestScenario,
 };
 use contender_sqlite::SqliteDb;
-use contender_testfile::TestConfig;
+use contender_testfile::{
+    default_templates::{DefaultConfig, FillBlockParams},
+    TestConfig,
+};
 use csv::{Writer, WriterBuilder};
 use std::{
     str::FromStr,
@@ -70,13 +74,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let testconfig: TestConfig = TestConfig::from_file(&testfile)?;
             let min_balance = parse_ether(&min_balance)?;
 
-            let signers = get_signers_with_defaults(private_keys);
-            let setup = testconfig
-                .setup
+            let user_signers = private_keys
                 .as_ref()
-                .expect("No setup function calls found in testfile");
-            check_private_keys(setup, &signers);
-            check_balances(&signers, min_balance, &rpc_client).await;
+                .unwrap_or(&vec![])
+                .iter()
+                .map(|key| PrivateKeySigner::from_str(&key).unwrap())
+                .collect::<Vec<PrivateKeySigner>>();
+            let signers = get_signers_with_defaults(private_keys);
+            check_private_keys(&testconfig.setup.to_owned().unwrap_or(vec![]), &signers);
+            check_balances(&user_signers, min_balance, &rpc_client).await;
 
             let scenario = TestScenario::new(
                 testconfig.to_owned(),
@@ -110,13 +116,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let duration = duration.unwrap_or_default();
             let min_balance = parse_ether(&min_balance)?;
 
+            let user_signers = private_keys
+                .as_ref()
+                .unwrap_or(&vec![])
+                .iter()
+                .map(|key| PrivateKeySigner::from_str(&key).unwrap())
+                .collect::<Vec<PrivateKeySigner>>();
             let signers = get_signers_with_defaults(private_keys);
             let spam = testconfig
                 .spam
                 .as_ref()
                 .expect("No spam function calls found in testfile");
             check_private_keys(spam, &signers);
-            check_balances(&signers, min_balance, &rpc_client).await;
+            check_balances(&user_signers, min_balance, &rpc_client).await;
 
             if txs_per_block.is_some() && txs_per_second.is_some() {
                 panic!("Cannot set both --txs-per-block and --txs-per-second");
@@ -190,6 +202,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .from_writer(std::io::stdout());
                 write_run_txs(&mut writer, &txs)?; // TODO: write a macro that lets us generalize the writer param to write_run_txs, then refactor this duplication
             };
+        }
+        ContenderSubcommand::Template {
+            out_file,
+            base_template,
+            rpc_url,
+        } => {
+            let out_file = out_file.unwrap_or("testfile.toml".to_owned());
+            let config: TestConfig = if let Some(base_template) = base_template {
+                if base_template.to_lowercase() == "fillblock" {
+                    DefaultConfig::FillBlock(FillBlockParams {
+                        basepath: "../testfile/contracts/out".to_owned(),
+                        from: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+                            .parse()
+                            .unwrap(),
+                        gas_target: if let Some(rpc_url) = rpc_url {
+                            let url = Url::parse(&rpc_url)?;
+                            let provider = ProviderBuilder::new().on_http(url);
+                            let block = provider
+                                .get_block(
+                                    alloy::eips::BlockNumberOrTag::Latest.into(),
+                                    alloy::rpc::types::BlockTransactionsKind::Hashes,
+                                )
+                                .await?
+                                .expect("failed to get latest block");
+                            block.header.gas_limit as u64
+                        } else {
+                            30_000_000
+                        },
+                    })
+                    .into()
+                } else {
+                    Err(ContenderError::SpamError("invalid base template", None))?
+                }
+            } else {
+                TestConfig::default()
+            };
+            config.save_toml(&out_file)?;
+            println!("Saved template to {}", out_file);
         }
     }
     Ok(())

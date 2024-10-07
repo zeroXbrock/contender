@@ -137,6 +137,7 @@ where
                     .map(|tx| tx.to_owned())
                     .collect::<Vec<_>>();
                 self.cache = new_txs.to_vec();
+                println!("unconfirmed txs: {}", new_txs.len());
 
                 // ready to go to the DB
                 let run_txs = confirmed_txs

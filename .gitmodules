@@ -1,0 +1,21 @@
+[submodule "testfile/contracts/lib/forge-std"]
+	path = testfile/contracts/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "testfile/contracts/lib/high-volume-contract"]
+	path = testfile/contracts/lib/high-volume-contract
+	url = https://github.com/zeroXbrock/high-volume-contract
+[submodule "testfile/contracts/lib/openzeppelin-contracts"]
+	path = testfile/contracts/lib/openzeppelin-contracts
+	url = https://github.com/openzeppelin/openzeppelin-contracts
+[submodule "testfile/contracts/lib/v2-core"]
+	path = testfile/contracts/lib/v2-core
+	url = https://github.com/uniswap/v2-core
+[submodule "testfile/contracts/lib/v2-periphery"]
+	path = testfile/contracts/lib/v2-periphery
+	url = https://github.com/uniswap/v2-periphery
+[submodule "testfile/contracts/lib/uniswap-lib"]
+	path = testfile/contracts/lib/uniswap-lib
+	url = https://github.com/uniswap/uniswap-lib
+[submodule "testfile/contracts/lib/canonical-weth"]
+	path = testfile/contracts/lib/canonical-weth
+	url = https://github.com/gnosis/canonical-weth
