@@ -33,23 +33,29 @@ static DB: LazyLock<SqliteDb> = std::sync::LazyLock::new(|| {
 });
 
 fn get_signers_with_defaults(private_keys: Option<Vec<String>>) -> Vec<PrivateKeySigner> {
-    if private_keys.is_none() {
-        println!("No private keys provided. Using default private keys.");
-    }
-    let private_keys = private_keys.unwrap_or_default();
-    let private_keys = [
-        private_keys,
-        DEFAULT_PRV_KEYS
+    if let Some(private_keys) = private_keys {
+        println!("Using provided private keys.");
+        private_keys
             .into_iter()
-            .map(|s| s.to_owned())
-            .collect::<Vec<_>>(),
-    ]
-    .concat();
+            .map(|k| PrivateKeySigner::from_str(&k).expect("Invalid private key"))
+            .collect::<Vec<PrivateKeySigner>>()
+    } else {
+        println!("No private keys provided. Using default private keys.");
+        let private_keys = private_keys.unwrap_or_default();
+        let private_keys = [
+            private_keys,
+            DEFAULT_PRV_KEYS
+                .into_iter()
+                .map(|s| s.to_owned())
+                .collect::<Vec<_>>(),
+        ]
+            .concat();
 
-    private_keys
-        .into_iter()
-        .map(|k| PrivateKeySigner::from_str(&k).expect("Invalid private key"))
-        .collect::<Vec<PrivateKeySigner>>()
+        private_keys
+            .into_iter()
+            .map(|k| PrivateKeySigner::from_str(&k).expect("Invalid private key"))
+            .collect::<Vec<PrivateKeySigner>>()
+    }
 }
 
 #[tokio::main]
